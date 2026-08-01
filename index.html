@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>个人工作台 · Daily Workbench</title>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#5b6cff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="工作台" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <!-- iOS 启动屏幕 (不同尺寸 iPhone 适配) -->
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" />
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" />
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css?v=20260801g" />
+  <script>
+    // 注册 Service Worker(仅在生产/HTTPS 环境生效;localhost 也可)
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () {});
+      });
+    }
+    // PWA 安装提示:捕获 beforeinstallprompt,由 UI 按钮触发
+    window.__pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      window.__pwaDeferredPrompt = e;
+      document.dispatchEvent(new CustomEvent("pwa-installable"));
+    });
+    window.addEventListener("appinstalled", function () {
+      window.__pwaDeferredPrompt = null;
+      document.dispatchEvent(new CustomEvent("pwa-installed"));
+    });
+  </script>
+  </head>
+<body>
+  <!-- 移动端顶部栏 -->
+  <div class="mobile-header">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" title="菜单">☰</button>
+    <div class="mobile-title" id="mobileTitle">工作台</div>
+    <button class="mobile-install-btn" id="mobileInstallBtn" title="安装APP" style="display:none;background:linear-gradient(135deg,#5b6cff,#8b5cf6);color:#fff;border:none;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">⬇ 安装APP</button>
+  </div>
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+  <div class="app">
+    <!-- 侧边导航 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-logo">◆</div>
+        <div class="brand-text">
+          <div class="brand-title">工作台</div>
+          <div class="brand-sub">Daily Workbench</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="navContainer"></nav>
+      <button class="nav-collapse-btn" id="navCollapseBtn" title="折叠/展开">‹ 收起</button>
+
+      <div class="sidebar-footer">
+        <div class="today-card" id="sidebarToday"></div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
+          <button class="install-btn" id="installBtn" title="安装为桌面APP" style="display:none;flex:1;padding:8px 10px;font-size:12px;border-radius:10px;border:1px solid var(--primary);background:var(--primary-soft);color:var(--primary-deep);font-weight:700;cursor:pointer;">⬇ 安装APP</button>
+          <button class="theme-toggle" id="themeToggle" title="切换主题" style="margin:0;">
+            <span id="themeIcon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main">
+      <!-- ============ 今日任务 ============ -->
+      <section class="panel active" id="panel-tasks">
+        <header class="panel-header">
+          <div>
+            <h1 class="panel-title">今日任务</h1>
+            <p class="panel-desc">规划、执行、记录 —— 让每一天都看得见进度</p>
+          </div>
+          <div class="date-picker">
+            <button class="icon-btn" id="prevDay" title="前一天">‹</button>
+            <input type="date" id="taskDate" />
+            <button class="icon-btn" id="nextDay" title="后一天">›</button>
+            <button class="btn btn-ghost" id="todayBtn">今天</button>
+          </div>
+        </header>
+
+        <!-- 进度概览 -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-label">总任务</div>
+            <div class="stat-value" id="statTotal">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">已完成</div>
+            <div class="stat-value stat-done" id="statDone">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">进行中</div>
+            <div class="stat-value stat-active" id="statActive">0</div>
+          </div>
+          <div class="stat-card stat-card-wide">
+            <div class="stat-label">完成进度</div>
+            <div class="progress-wrap">
+              <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+              <div class="progress-text" id="progressText">0%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 添加任务 -->
+        <div class="add-task">
+          <input type="text" id="taskInput" placeholder="添加一个任务,例如:完成项目方案撰写..." />
+          <select id="taskPriority">
+            <option value="high">高优</option>
+            <option value="medium" selected>中优</option>
+            <option value="low">低优</option>
+          </select>
+          <input type="number" id="taskEstimate" placeholder="预计(min)" min="0" step="5" />
+          <button class="btn btn-primary" id="addTaskBtn">+ 添加</button>
+        </div>
+
+        <!-- 任务列表 -->
+        <div class="task-list" id="taskList"></div>
+        <div class="empty-state" id="taskEmpty">
+          <div class="empty-icon">📝</div>
+          <p>今天还没有任务</p>
+          <span>在上方添加你的第一个任务开始吧</span>
+        </div>
+      </section>
+
+      <!-- ============ 计时器 ============ -->
+      <section class="panel" id="panel-timer">
+        <header class="panel-header">
+          <div>
+            <h1 class="panel-title">计时器</h1>
+            <p class="panel-desc">专注当下,正计时记录投入,倒计时守护截止</p>
+          </div>
+        </header>
+
+        <div class="timer-mode-tabs">
+          <button class="mode-tab active" data-mode="up">正计时</button>
+          <button class="mode-tab" data-mode="down">倒计时</button>
+        </div>
+
+        <div class="timer-display-wrap">
+          <div class="timer-display" id="timerDisplay">00:00:00</div>
+          <div class="timer-status" id="timerStatus">就绪</div>
+        </div>
+
+        <!-- 倒计时设置 -->
+        <div class="timer-setup" id="timerSetup" style="display:none;">
+          <div class="time-set">
+            <div class="time-set-item">
+              <label>时</label>
+              <input type="number" id="setH" value="0" min="0" max="23" />
+            </div>
+            <div class="time-set-item">
+              <label>分</label>
+              <input type="number" id="setM" value="25" min="0" max="59" />
+            </div>
+            <div class="time-set-item">
+              <label>秒</label>
+              <input type="number" id="setS" value="0" min="0" max="59" />
+            </div>
+          </div>
+          <div class="preset-row">
+            <button class="preset-btn" data-sec="300">5分</button>
+            <button class="preset-btn" data-sec="900">15分</button>
+            <button class="preset-btn" data-sec="1500">25分(番茄)</button>
+            <button class="preset-btn" data-sec="3000">50分</button>
+            <button class="preset-btn" data-sec="3600">1时</button>
+          </div>
+        </div>
+
+        <!-- 关联任务 -->
+        <div class="timer-link">
+          <label>关联任务(可选):</label>
+          <select id="timerTaskLink"><option value="">不关联</option></select>
+        </div>
+
+        <div class="timer-controls">
+          <button class="btn btn-primary btn-lg" id="timerStart">开始</button>
+          <button class="btn btn-ghost btn-lg" id="timerPause" disabled>暂停</button>
+          <button class="btn btn-ghost btn-lg" id="timerReset">重置</button>
+        </div>
+
+        <div class="timer-note" id="timerNote"></div>
+      </section>
+
+      <!-- ============ 日期倒计时 ============ -->
+      <section class="panel" id="panel-countdown">
+        <header class="panel-header">
+          <div>
+            <h1 class="panel-title">日期倒计时</h1>
+            <p class="panel-desc">为重要节点设个倒计时,时刻清楚还剩多少时间</p>
+          </div>
+        </header>
+
+        <div class="add-countdown">
+          <input type="text" id="cdName" placeholder="事件名称,例如:产品发布" />
+          <input type="date" id="cdDate" />
+          <button class="btn btn-primary" id="addCdBtn">+ 添加</button>
+        </div>
+
+        <div class="countdown-list" id="countdownList"></div>
+        <div class="empty-state" id="cdEmpty">
+          <div class="empty-icon">📅</div>
+          <p>还没有倒计时事件</p>
+          <span>添加一个重要日期,开始倒数</span>
+        </div>
+      </section>
+
+      <!-- ============ 复盘分析 ============ -->
+      <section class="panel" id="panel-review">
+        <header class="panel-header">
+          <div>
+            <h1 class="panel-title">复盘分析</h1>
+            <p class="panel-desc">回看执行情况,提炼规律,优化下一次</p>
+          </div>
+          <div class="date-picker">
+            <input type="date" id="reviewFrom" />
+            <span class="dash">~</span>
+            <input type="date" id="reviewTo" />
+            <button class="btn btn-ghost" id="reviewApply">分析</button>
+          </div>
+        </header>
+
+        <!-- 自动复盘总结 -->
+        <div class="review-block auto-summary-block">
+          <div class="block-title-row">
+            <h3 class="block-title">🤖 自动复盘总结</h3>
+            <div class="summary-actions">
+              <select id="summaryDateSel"></select>
+              <button class="btn btn-primary" id="genSummaryBtn">生成结构化总结</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-bottom:12px;">选择某一天,系统将基于当天的任务数据与你的反思笔记,自动进行理性、结构化的复盘分析。</p>
+          <div class="auto-summary" id="autoSummary">
+            <p class="muted">点击「生成结构化总结」开始分析…</p>
+          </div>
+        </div>
+
+        <!-- 概览统计 -->
+        <div class="review-stats" id="reviewStats">
+          <div class="rstat-card">
+            <div class="rstat-label">覆盖天数</div>
+            <div class="rstat-value" id="rDays">0</div>
+          </div>
+          <div class="rstat-card">
+            <div class="rstat-label">任务总数</div>
+            <div class="rstat-value" id="rTotal">0</div>
+          </div>
+          <div class="rstat-card">
+            <div class="rstat-label">完成数</div>
+            <div class="rstat-value rstat-done" id="rDone">0</div>
+          </div>
+          <div class="rstat-card">
+            <div class="rstat-label">平均完成率</div>
+            <div class="rstat-value" id="rRate">0%</div>
+          </div>
+          <div class="rstat-card">
+            <div class="rstat-label">预计投入</div>
+            <div class="rstat-value" id="rEst">0min</div>
+          </div>
+          <div class="rstat-card">
+            <div class="rstat-label">实际投入</div>
+            <div class="rstat-value" id="rAct">0min</div>
+          </div>
+        </div>
+
+        <!-- 每日完成趋势 -->
+        <div class="review-block">
+          <h3 class="block-title">每日完成趋势</h3>
+          <div class="chart-wrap" id="trendChart"></div>
+        </div>
+
+        <!-- 优化建议 -->
+        <div class="review-block suggest-block">
+          <h3 class="block-title">🤖 智能优化建议</h3>
+          <div class="suggest-list" id="suggestList">
+            <p class="muted">选择日期范围后点击「分析」,将根据你的执行数据生成优化建议。</p>
+          </div>
+        </div>
+
+        <!-- 任务明细复盘 -->
+        <div class="review-block">
+          <h3 class="block-title">任务执行明细</h3>
+          <div class="review-detail-table" id="reviewDetail">
+            <div class="muted">暂无数据</div>
+          </div>
+        </div>
+
+        <!-- 手动反思笔记 -->
+        <div class="review-block">
+          <h3 class="block-title">✍️ 复盘笔记</h3>
+          <textarea id="reviewNote" placeholder="今天的收获、卡点、以及下一次可以怎么做得更好..."></textarea>
+          <button class="btn btn-primary" id="saveNoteBtn" style="margin-top:10px;">保存笔记</button>
+          <div class="note-saved-tip" id="noteSavedTip"></div>
+        </div>
+      </section>
+
+      <!-- ============ 英语学习 ============ -->
+      <section class="panel" id="panel-english">
+        <header class="panel-header">
+          <div>
+            <h1 class="panel-title">英语学习</h1>
+            <p class="panel-desc">导入字幕或视频链接,逐句双语对照,生词一键收藏</p>
+          </div>
+          <button class="btn btn-ghost" id="engHelpBtn">使用说明</button>
+        </header>
+
+        <!-- 导入区 -->
+        <div class="eng-import">
+          <div class="eng-tabs">
+            <button class="eng-tab active" data-src="text">粘贴字幕</button>
+            <button class="eng-tab" data-src="file">上传字幕文件</button>
+            <button class="eng-tab" data-src="url">视频链接</button>
+          </div>
+
+          <div class="eng-src" id="srcText">
+            <textarea id="subtitleText" rows="6" placeholder="粘贴英文字幕,每行一句&#10;例如:&#10;Hello, how are you today?&#10;I am fine, thank you."></textarea>
+          </div>
+
+          <div class="eng-src" id="srcFile" style="display:none;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:6px;">📁 选择文件(三种方式任选):</div>
+            <input type="file" id="subtitleFile" accept=".srt,.vtt,.txt,.mp3,.wav,.m4a,.ogg,.flac,.aac,.webm,.mp4,.mov" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
+            <label id="sub-dropzone" for="subtitleFile" style="display:block;margin-top:10px;padding:24px 16px;border:2px dashed var(--primary);border-radius:14px;background:var(--primary-soft);text-align:center;transition:all 0.15s;cursor:pointer;">
+              <div style="font-size:32px;line-height:1;margin-bottom:6px;">📥</div>
+              <div style="font-size:14px;font-weight:700;color:var(--primary-deep);">点击此处选择文件</div>
+              <div style="font-size:12px;color:var(--text-sub);margin-top:4px;">💡 手机:点击上方区域选字幕/音视频文件;电脑:可拖文件或 Ctrl+V 粘贴字幕文本</div>
+            </label>
+            <div id="subtitleFileInfo" class="muted" style="font-size:12px;margin-top:6px;margin-bottom:6px;"></div>
+            <p class="muted" style="font-size:12px;">
+              字幕文件(.srt/.vtt/.txt)自动解析;音视频(.mp3/.wav/.mp4 等)AI 自动转写(≤25MB,需配置 Whisper AI)
+            </p>
+            <div id="avTranscribeStatus" style="margin-top:8px;"></div>
+          </div>
+
+          <div class="eng-src" id="srcUrl" style="display:none;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="videoUrl" placeholder="粘贴 YouTube 或 Bilibili 链接" style="flex:1;min-width:200px;">
+              <button class="btn btn-primary" id="videoUrlCheck" type="button">🔍 分析链接</button>
+            </div>
+            <div id="videoUrlStatus" style="margin-top:8px;font-size:12px;"></div>
+            <p class="muted" style="margin-top:8px;font-size:12px;">
+              💡 提示:由于平台反爬/跨域限制,浏览器端通常无法直接抓取视频字幕。推荐方案:① 在视频网站打开字幕 → 复制文本 → 用「粘贴字幕」导入;
+              ② 自行下载视频 → 用「选择文件」上传音频/视频 → AI 自动转写。
+            </p>
+          </div>
+
+          <div class="eng-actions">
+            <select id="transEngine">
+              <option value="mymemory">MyMemory 免费翻译 (英→中)</option>
+            </select>
+            <button class="btn btn-primary" id="loadSubBtn">加载并逐句翻译</button>
+            <button class="btn btn-ghost" id="clearSubBtn">清空</button>
+          </div>
+        </div>
+
+        <!-- 翻译进度 -->
+        <div class="eng-progress" id="engProgress" style="display:none;">
+          <div class="eng-progress-bar"><div id="engProgressFill"></div></div>
+          <span id="engProgressText">准备翻译…</span>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="eng-toolbar">
+          <div class="eng-toolbar-info" id="subInfo"></div>
+          <div class="eng-toolbar-actions">
+            <input type="text" id="subSearch" placeholder="搜索字幕…" class="sub-search" />
+            <button class="btn btn-ghost" id="showWordbook">📓 生词本 (<span id="wordCount">0</span>)</button>
+            <button class="btn btn-ghost" id="backToSubtitle" style="display:none;">← 返回字幕</button>
+          </div>
+        </div>
+
+        <!-- 字幕列表 -->
+        <div class="subtitle-list" id="subtitleList">
+          <div class="empty-state">
+            <div class="empty-icon">🌐</div>
+            <p>还没有字幕内容</p>
+            <span>粘贴、上传或导入字幕开始学习</span>
+          </div>
+        </div>
+
+        <!-- 生词本 -->
+        <div class="wordbook" id="wordbook" style="display:none;"></div>
+
+        <!-- 使用说明弹层 -->
+        <div class="modal-mask" id="engHelpModal">
+          <div class="modal">
+            <div class="modal-header">
+              <h3>英语学习 · 使用说明</h3>
+              <button class="icon-btn" id="engHelpClose">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="help-step"><b>1. 获取字幕</b><br>在 YouTube/Bilibili 视频页面打开字幕,复制字幕文本;或下载 .srt/.vtt 字幕文件。</div>
+              <div class="help-step"><b>2. 导入字幕</b><br>选择「粘贴字幕」直接粘贴,或「上传字幕文件」选择 .srt/.vtt/.txt 文件。</div>
+              <div class="help-step"><b>3. 自动翻译</b><br>点击「加载并逐句翻译」,系统调用免费翻译 API 将每句英文翻译为中文,逐句对照显示。</div>
+              <div class="help-step"><b>4. 收藏生词</b><br>点击字幕中任意英文单词,即可加入生词本;在生词本中可查看释义与出处句子。</div>
+              <div class="help-step"><b>5. 搜索回顾</b><br>用搜索框快速定位字幕内容。</div>
+              <p class="muted" style="margin-top:10px;">翻译由 MyMemory 免费 API 提供,每日有额度限制,如遇翻译失败请稍后再试。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 动态模块面板容器(由 JS 注入) -->
+      <div id="dynamicPanels"></div>
+    </main>
+  </div>
+
+  <!-- 任务编辑弹层 -->
+  <div class="modal-mask" id="taskModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>任务详情 & 复盘</h3>
+        <button class="icon-btn" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js?v=20260801g"></script>
+</body>
+</html>
